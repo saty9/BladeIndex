@@ -1,0 +1,123 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="{% static 'node_modules/bootstrap/css/bootstrap.css' %}">
+    <link rel="stylesheet" href="{% static 'node_modules/jquery-ui/jquery-ui.css' %}">
+</head>
+<body>
+<div class="container">
+    <form id="manual_add_form" class="container">
+        {% csrf_token %}
+        <div class="form-group row">
+            <div class="col">
+                <label for="winner_name" class="col-form-label">
+                    Winner
+                </label>
+                <input id="winner_name" name="winner_name" type="text" class="form-control" placeholder="Name" required>
+                <input id="winner_id" name="winner_id" type="hidden">
+            </div>
+            <div class="col">
+                <label for="loser_name" class="col-form-label">
+                    Loser
+                </label>
+                <input id="loser_name" name="loser_name" type="text" class="form-control" placeholder="Name" required>
+                <input id="loser_id" name="loser_id" type="hidden">
+            </div>
+        </div>
+        <div class="form-group row">
+            <div class="col">
+                <input id="w_score" name="w_score" type="number" class="form-control" placeholder="Score" min="0"
+                       max="15"
+                       required>
+            </div>
+            <div class="col">
+                <input id="l_score" name="l_score" type="number" class="form-control" placeholder="Score" min="0"
+                       max="15"
+                       required>
+            </div>
+        </div>
+        <div class="form-group row">
+            <button type="button" id="submit" class="btn">Submit</button>
+        </div>
+    </form>
+</div>
+</body>
+</html>
+<script src="{% static 'node_modules/jquery/jquery.min.js' %}"></script>
+<script src="{% static 'node_modules/jquery-ui/jquery-ui.min.js' %}"></script>
+<script>
+    var table = 1;
+    $("#winner_name").autocomplete({
+        source: function (req, add) {
+            $.getJSON("{% url 'main/competitors' %}", {'name': req.term}, function (data) {
+                add(data.competitors)
+            })
+        },
+        minLength: 3,
+        select: function (event, ui) {
+            event.preventDefault();
+            $("#winner_id").val(ui.item.id);
+            $("#winner_name").val(ui.item.name)
+        }
+    }).autocomplete("instance")._renderItem = function (ul, item) {
+        return $("<li>")
+            .append("<div>" + item.name + "</div>")
+            .appendTo(ul);
+    };
+
+    $("#loser_name").autocomplete({
+        source: function (req, add) {
+            $.getJSON("{% url 'main/competitors' %}", {'name': req.term}, function (data) {
+                add(data.competitors)
+            })
+        },
+        minLength: 3,
+        select: function (event, ui) {
+            event.preventDefault();
+            $("#loser_id").val(ui.item.id);
+            $("#loser_name").val(ui.item.name)
+        }
+    }).autocomplete("instance")._renderItem = function (ul, item) {
+        return $("<li>")
+            .append("<div>" + item.name + "</div>")
+            .appendTo(ul);
+    };
+    $('#submit').click(function (e) {
+        if (!$('#winner_id').val()) {
+            $('#winner_id').val(add_competitor($('#winner_name').val()))
+        }
+        if (!$('#loser_id').val()) {
+            $('#loser_id').val(add_competitor($('#loser_name').val()))
+        }
+        $.ajax({
+            type: 'post',
+            url: '/api/' + table + '/new_result',
+            data: $('form').serialize(),
+            success: function () {
+                alert('form was submitted');
+            }
+        })
+    });
+
+    function add_competitor(name) {
+        var id = -1;
+        $.ajaxSetup({
+            beforeSend: function (xhr, settings) {
+                xhr.setRequestHeader("X-CSRFToken", jQuery("[name=csrfmiddlewaretoken]").val());
+            }
+        });
+        $.ajax({
+            type: 'post',
+            url: '{% url 'main/competitors' %}',
+            data: {'name': name},
+            async: false,
+            success: function (data) {
+                id = data.id;
+            }
+        });
+        return id;
+    }
+</script>
