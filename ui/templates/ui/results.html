@@ -6,16 +6,121 @@
     <title>Title</title>
     <link rel="stylesheet" href="{% static 'node_modules/bootstrap/css/bootstrap.css' %}">
     <link rel="stylesheet" href="{% static 'node_modules/jquery-ui/jquery-ui.css' %}">
+    <style>
+        /* tell the SVG path to be a thin blue line without any area fill */
+        path {
+            stroke: steelblue;
+            stroke-width: 1;
+            fill: none;
+        }
+    </style>
 </head>
 <body>
-<div id="root">
+<div>
+    <table class="table">
+        <thead>
+        <th>Rating</th>
+        <th>Name</th>
+        </thead>
+        <tbody id="app">
+        <tr v-for="result in results">
+            <td>[[result.rating]]</td>
+            <td>[[result.name]]</td>
+            <td>
+                <results-graph
+                        v-bind:result_data="result"
+                        v-bind:key="result.id">
+                </results-graph>
+            </td>
+        </tr>
+        </tbody>
+    </table>
 </div>
 </body>
 </html>
 <script src="{% static 'node_modules/jquery/jquery.min.js' %}"></script>
-<script src="{% static 'node_modules/react/react.development.js' %}"></script>
-<script src="{% static 'node_modules/react-dom/react-dom-server.browser.development.js' %}"></script>
+<script src="https://unpkg.com/vue"></script>
+<script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script>
+    var main = null;
+    Vue.component('results-graph', {
+        delimiters: ['[[', ']]'],
+        props: ['result_data', 'shape'],
+        data: function () {
+            return {}
+        },
+        methods: {
+            initalizeChart: function () {
+                this.drawChart();
+            },
+            refreshChart: function () {
+                this.clearCanvas();
+                this.drawChart();
+            },
+            drawChart: function () {
+                var graph = d3.select("#" + this.getId()).append("svg:svg").attr("width", "100%").attr("height", "100%");
+                // X scale will fit values from 0-10 within pixels 0-100
+                var x = d3.scale.linear().domain([0, this.result_data.history.length-1]).range([0, this.getWidth()]);
+                // Y scale will fit values from 0-10 within pixels 0-100
+                var y = d3.scale.linear().domain([0, Math.max(...this.result_data.history)]).range([0, this.getHeight()]);
 
+                // create a line object that represents the SVN line we're creating
+                var line = d3.svg.line()
+                // assign the X function to plot our line as we wish
+                    .x(function (d, i) {
+                        // verbose logging to show what's actually being done
+                        console.log('Plotting X value for data point: ' + d + ' using index: ' + i + ' to be at: ' + x(i) + ' using our xScale.');
+                        // return the X coordinate where we want to plot this datapoint
+                        return x(i);
+                    })
+                    .y(function (d) {
+                        // verbose logging to show what's actually being done
+                        console.log('Plotting Y value for data point: ' + d + ' to be at: ' + y(d) + " using our yScale.");
+                        // return the Y coordinate where we want to plot this datapoint
+                        return y(d);
+                    });
+
+                // display the line by appending an svg:path element with the data line we created above
+                graph.append("svg:path").attr("d", line(this.result_data.history));
+            },
+            clearCanvas: function () {
+                d3.select("#" + this.getId()).selectAll("*").remove();
+            },
+            getHeight: function () {
+                return 30;
+                return this.chartData.height || 30;
+            },
+            getWidth: function () {
+                return 400;
+                return this.chartData.width || 400;
+            },
+            getId: function () {
+                return "sparkline-" + this.result_data.id;
+            }
+        },
+        mounted: function () { // <-- lifecycle events
+            this.initalizeChart();
+        },
+        watch: { // <-- watch functions
+            'result_data': {
+                handler: function (val) {
+                    this.refreshChart();
+                },
+                deep: true
+            }
+        },
+        template:
+            '<svg class="chart" :height="this.getHeight()" :width="this.getWidth()" :id="this.getId()"> </svg>'
+    });
+    jQuery.ajaxSetup({async:false});
+    let data = $.get("{% url 'main/table_data' table.name %}").responseJSON.data;
+    data.sort(function(a, b){return b.rating-a.rating});
+    console.log(data);
+    var main = new Vue({
+        delimiters: ['[[', ']]'],
+        el: '#app',
+        data: {
+            results: data
+        }
+    });
 </script>
-<script src="{% static 'ui/results/src/main.js' %}"></script>

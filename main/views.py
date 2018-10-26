@@ -49,3 +49,19 @@ def competitors(request):
         filtered_competitors = list(Competitor.objects.filter(name__icontains=name)[:10].values('name', 'id'))
         return JsonResponse({'competitors': filtered_competitors})
 
+
+def table_data(request, name):
+    table = get_object_or_404(RatingTable, name=name)
+    ratings = Rating.objects.filter(rating_table=table).select_related('competitor').order_by('competitor', '-time')
+    out = []
+    current = None
+    for r in ratings:
+        if r.competitor_id != current:
+            out.append({'history': [], 'name': r.competitor.name, 'id': r.competitor_id, 'rating': r.value})
+            current = r.competitor_id
+        out[-1]['history'].append(r.value)
+
+    return JsonResponse({'data': out})
+
+
+
