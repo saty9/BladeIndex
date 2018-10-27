@@ -16,7 +16,10 @@
     </style>
 </head>
 <body>
-<div>
+<div id="root">
+
+</div>
+<template id="results_table">
     <table class="table">
         <thead>
         <th>Rating</th>
@@ -35,14 +38,13 @@
         </tr>
         </tbody>
     </table>
-</div>
+</template>
 </body>
 </html>
 <script src="{% static 'node_modules/jquery/jquery.min.js' %}"></script>
 <script src="https://unpkg.com/vue"></script>
 <script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script>
-    var main = null;
     Vue.component('results-graph', {
         delimiters: ['[[', ']]'],
         props: ['result_data', 'shape'],
@@ -60,7 +62,7 @@
             drawChart: function () {
                 var graph = d3.select("#" + this.getId()).append("svg:svg").attr("width", "100%").attr("height", "100%");
                 // X scale will fit values from 0-10 within pixels 0-100
-                var x = d3.scale.linear().domain([0, this.result_data.history.length-1]).range([0, this.getWidth()]);
+                var x = d3.scale.linear().domain([0, this.result_data.history.length - 1]).range([0, this.getWidth()]);
                 // Y scale will fit values from 0-10 within pixels 0-100
                 var y = d3.scale.linear().domain([0, Math.max(...this.result_data.history)]).range([0, this.getHeight()]);
 
@@ -112,15 +114,32 @@
         template:
             '<svg class="chart" :height="this.getHeight()" :width="this.getWidth()" :id="this.getId()"> </svg>'
     });
-    jQuery.ajaxSetup({async:false});
-    let data = $.get("{% url 'main/table_data' table.name %}").responseJSON.data;
-    data.sort(function(a, b){return b.rating-a.rating});
-    console.log(data);
     var main = new Vue({
         delimiters: ['[[', ']]'],
-        el: '#app',
+        el: '#root',
         data: {
-            results: data
-        }
+            results: []
+        },
+        mounted: function () {
+            console.log("loaded");
+            this.fetchData();
+        },
+        methods: {
+            fetchData: function () {
+                $.get({
+                    context: this,
+                    url: "{% url 'main/table_data' table.name %}",
+                    success: function (new_data) {
+                        new_data = new_data.data;
+                        new_data.sort(function (a, b) {
+                            return b.rating - a.rating;
+                        });
+                        this._data.results = new_data;
+                    }
+                });
+
+            }
+        },
+        template: "#results_table"
     });
 </script>
