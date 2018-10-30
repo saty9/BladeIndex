@@ -2,7 +2,6 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 
 from main.models import Competitor, RatingTable, Rating
-from rest_framework import viewsets
 
 
 def rating_table_list(request):
