@@ -6,8 +6,8 @@ from rest_framework import viewsets
 
 
 def rating_table_list(request):
-    tables = RatingTable.objects.all()
-    return JsonResponse(tables)
+    tables = RatingTable.objects.values('pk', 'name')
+    return JsonResponse({'tables': list(tables)})
 
 
 def rating_table_participants(request, name):

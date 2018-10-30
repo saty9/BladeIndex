@@ -7,8 +7,30 @@
     <link rel="stylesheet" href="{% static 'node_modules/bootstrap/css/bootstrap.css' %}">
     <link rel="stylesheet" href="{% static 'node_modules/jquery-ui/jquery-ui.css' %}">
 </head>
+<style>
+    .card-container {
+        display: grid;
+        padding: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        grid-gap: 1rem;
+    }
+</style>
 <body>
 <div class="container">
+    <div class="row">
+        <div id="root"></div>
+    </div>
+</div>
+<template id="table_selection">
+    <ul class="list-group">
+        <li class="list-group-item" style="width: 18rem;" v-for="table in tables">
+            <div v-on:click="$emit('tableSelected', [[table.pk]])">
+                <strong>[[ table.name ]]</strong>
+            </div>
+        </li>
+    </ul>
+</template>
+<template id="result_submission">
     <form id="manual_add_form" class="container">
         {% csrf_token %}
         <div class="form-group row">
@@ -40,67 +62,173 @@
             </div>
         </div>
         <div class="form-group row">
-            <button type="button" id="submit" class="btn">Submit</button>
+            <button type="button" id="submit" class="btn" v-on:click="submit">Submit</button>
         </div>
     </form>
-</div>
+</template>
 </body>
 </html>
 <script src="{% static 'node_modules/jquery/jquery.min.js' %}"></script>
-<script src="{% static 'node_modules/jquery-ui/jquery-ui.min.js' %}"></script>
-<script>
-    var table = 1;
-    $("#winner_name").autocomplete({
-        source: function (req, add) {
-            $.getJSON("{% url 'main/competitors' %}", {'name': req.term}, function (data) {
-                add(data.competitors)
-            })
-        },
-        minLength: 3,
-        select: function (event, ui) {
-            event.preventDefault();
-            $("#winner_id").val(ui.item.id);
-            $("#winner_name").val(ui.item.name)
-        }
-    }).autocomplete("instance")._renderItem = function (ul, item) {
-        return $("<li>")
-            .append("<div>" + item.name + "</div>")
-            .appendTo(ul);
-    };
+<script src="{% static 'node_modules/jquery-ui/jquery-ui.js' %}"></script>
+<script src="{% static 'node_modules/vue/vue.min.js' %}"></script>
 
-    $("#loser_name").autocomplete({
-        source: function (req, add) {
-            $.getJSON("{% url 'main/competitors' %}", {'name': req.term}, function (data) {
-                add(data.competitors)
-            })
-        },
-        minLength: 3,
-        select: function (event, ui) {
-            event.preventDefault();
-            $("#loser_id").val(ui.item.id);
-            $("#loser_name").val(ui.item.name)
-        }
-    }).autocomplete("instance")._renderItem = function (ul, item) {
-        return $("<li>")
-            .append("<div>" + item.name + "</div>")
-            .appendTo(ul);
-    };
-    $('#submit').click(function (e) {
-        if (!$('#winner_id').val()) {
-            $('#winner_id').val(add_competitor($('#winner_name').val()))
-        }
-        if (!$('#loser_id').val()) {
-            $('#loser_id').val(add_competitor($('#loser_name').val()))
-        }
-        $.ajax({
-            type: 'post',
-            url: '/api/' + table + '/new_result',
-            data: $('form').serialize(),
-            success: function () {
-                alert('form was submitted');
-            }
-        })
+<script>
+    var queryDict = {};
+    location.search.substr(1).split("&").forEach(function (item) {
+        queryDict[item.split("=")[0]] = item.split("=")[1]
     });
+    var table = 1;
+    var page_status = "selecting-table";
+    const views = {
+        "selecting-table": "table-selection",
+        "result-submission": 'results-submission'
+    };
+    Vue.component('results-submission', {
+        delimiters: ['[[', ']]'],
+        props: ['table', 'singleTableMode'],
+        methods: {
+            setup_autocomplete: function () {
+                $("#winner_name").autocomplete({
+                    source: function (req, add) {
+                        $.getJSON("{% url 'main/competitors' %}", {'name': req.term}, function (data) {
+                            add(data.competitors)
+                        })
+                    },
+                    minLength: 3,
+                    select: function (event, ui) {
+                        event.preventDefault();
+                        $("#winner_id").val(ui.item.id);
+                        $("#winner_name").val(ui.item.name)
+                    }
+                }).autocomplete("instance")._renderItem = function (ul, item) {
+                    return $("<li>")
+                        .append("<div>" + item.name + "</div>")
+                        .appendTo(ul);
+                };
+
+                $("#loser_name").autocomplete({
+                    source: function (req, add) {
+                        $.getJSON("{% url 'main/competitors' %}", {'name': req.term}, function (data) {
+                            add(data.competitors)
+                        })
+                    },
+                    minLength: 3,
+                    select: function (event, ui) {
+                        event.preventDefault();
+                        $("#loser_id").val(ui.item.id);
+                        $("#loser_name").val(ui.item.name)
+                    }
+                }).autocomplete("instance")._renderItem = function (ul, item) {
+                    return $("<li>")
+                        .append("<div>" + item.name + "</div>")
+                        .appendTo(ul);
+                };
+            },
+            submit: function () {
+                if (!$('#winner_id').val()) {
+                    $('#winner_id').val(add_competitor($('#winner_name').val()))
+                }
+                if (!$('#loser_id').val()) {
+                    $('#loser_id').val(add_competitor($('#loser_name').val()))
+                }
+                let single_table_mode = this.singleTableMode;
+                $.ajax({
+                    type: 'post',
+                    url: '/api/' + table + '/new_result',
+                    data: $('form').serialize(),
+                    success: function () {
+                        alert('form was submitted');
+                        if (single_table_mode) {
+                            $('form').reset();
+                        } else {
+                            this.$emit('resultSubmitted', 1);
+                        }
+                    }.bind(this)
+                })
+            }
+        },
+        mounted: function () {
+            this.setup_autocomplete();
+        },
+        template: "#result_submission",
+    });
+
+    Vue.component('table-selection', {
+        delimiters: ['[[', ']]'],
+        props: ['tables'],
+        template: "#table_selection",
+    });
+
+    Vue.component('main-component', {
+        delimiters: ['[[', ']]'],
+        data: function () {
+            return {
+                pageStatus: (queryDict['table']) ? "result-submission" : "selecting-table",
+                table: queryDict['table'],
+                singleTableMode: 'table' in queryDict,
+                tables: [{name: "sabre", id: "2"}]
+            }
+        },
+        mounted: function () {
+            this.fetchData();
+        },
+        computed: {
+            ViewComponent() {
+                return views[this.pageStatus]
+            }
+        },
+        methods: {
+            tableSelected: function (event) {
+                this.table = event[0][0];
+                this.pageStatus = "result-submission";
+            },
+            resultSubmitted: function (event) {
+                console.log("result submitted");
+                this.pageStatus = "selecting-table";
+            },
+            fetchData: function () {
+                $.get({
+                    context: this,
+                    url: "{% url 'main/table_list' %}",
+                    success: function (new_data) {
+                        this._data.tables = new_data.tables;
+                    }
+                });
+
+            }
+        },
+        render(h) {
+            const view_data = {
+                "selecting-table": {
+                    props: {
+                        tables: this.tables
+                    },
+                    on: {
+                        tableSelected: this.tableSelected
+                    }
+                },
+                "result-submission": {
+                    props: {
+                        table: this.table,
+                        singleTableMode: this.singleTableMode
+                    },
+                    on: {
+                        resultSubmitted: this.resultSubmitted
+                    }
+                }
+            };
+            console.log(this.ViewComponent);
+            return h(this.ViewComponent, view_data[this.pageStatus])
+        }
+    });
+
+
+    var main = new Vue({
+        delimiters: ['[[', ']]'],
+        el: '#root',
+        template: '<main-component/>',
+    });
+
 
     function add_competitor(name) {
         var id = -1;
