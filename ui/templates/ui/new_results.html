@@ -232,6 +232,7 @@
 
     function add_competitor(name) {
         var id = -1;
+        if (confirm("I " + name + " consent for my name and rating to be stored indefinitely and acknowledge this data may be stored somewhere as or more insecure than a cardboard box in a students living room")){
         $.ajaxSetup({
             beforeSend: function (xhr, settings) {
                 xhr.setRequestHeader("X-CSRFToken", jQuery("[name=csrfmiddlewaretoken]").val());
@@ -247,5 +248,8 @@
             }
         });
         return id;
+        } else {
+            throw "Must have permission"
+        }
     }
 </script>
